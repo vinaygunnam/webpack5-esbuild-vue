@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Demo</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="https://direct-mfe-utils.do41368.eas.morningstar.com/remotes.js"></script>
+    <script>
+      (async () => {
+        window.__module_federation__.registerRemotes({
+          <%= moduleScope %>: "<%= moduleScope %>@remoteEntry.js",
+        });
+
+        // const { default: Resource } = (await some_name.get("./Example"))();
+        // const Component = Vue.extend(Resource);
+        // new Component().$mount(document.querySelector("#app"));
+
+        const { default: Resource } = await window.__module_federation__.import(
+          "<%= moduleScope %>/Example"
+        );
+        console.log(Resource);
+        const {render} = await window.__module_federation__.import("<%= moduleScope %>/render")
+        render(Resource, {}, document.querySelector("#app"))
+      })();
+    </script>
+  </body>
+</html>
