@@ -7,22 +7,16 @@ const {
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const { name, port } = require("./configuration.json");
 
-const manifest = require("./package.json");
-const sharedDependencies = Object.keys(manifest.dependencies).map((d) => ({
-  [d]: d,
-}));
-
 const isProd = process.env.NODE_ENV === "production";
+console.log(isProd ? "production" : "development");
 const whenNotProd = (x) => (isProd ? undefined : x);
 
 /** @type {import('webpack').WebpackOptionsNormalized} */
 module.exports = {
   mode: isProd ? "production" : "development",
-
   entry: {
     main: "./src/main.js",
   },
-
   output: {
     library: {
       type: "umd",
@@ -30,10 +24,9 @@ module.exports = {
     path: path.resolve(__dirname, `./dist/`),
     publicPath: "auto",
   },
-
   devServer: whenNotProd({
     compress: true,
-    port,
+    port: process.env.PORT || port,
     host: "0.0.0.0",
     allowedHosts: "all",
     hot: true,
@@ -44,7 +37,11 @@ module.exports = {
         "X-Requested-With, content-type, Authorization",
     },
   }),
-
+  resolve: {
+    alias: {
+      vue$: isProd ? "vue/dist/vue.min.js" : "vue/dist/vue.js",
+    },
+  },
   module: {
     rules: [
       // Use esbuild as a Babel alternative
@@ -61,24 +58,52 @@ module.exports = {
       },
       {
         test: /\.s?css$/i,
-        use: [
-          "style-loader",
+        oneOf: [
           {
-            loader: "css-loader",
-            options: {
-              modules: {
-                auto: true,
-                localIdentName: "[local]_[hash:base64:5]",
+            resourceQuery: /module/,
+            use: [
+              "style-loader",
+              {
+                loader: "css-loader",
+                options: {
+                  modules: {
+                    localIdentName: "[local]_[hash:base64:5]",
+                  },
+                },
               },
-            },
+              {
+                loader: "sass-loader",
+                options: {
+                  additionalData: `$mds-font-asset-path: '~@mds/fonts/src/';`,
+                },
+              },
+              {
+                loader: "esbuild-loader",
+                options: {
+                  loader: "css",
+                  minify: true,
+                },
+              },
+            ],
           },
-          "sass-loader",
           {
-            loader: "esbuild-loader",
-            options: {
-              loader: "css",
-              minify: true,
-            },
+            use: [
+              "style-loader",
+              "css-loader",
+              {
+                loader: "sass-loader",
+                options: {
+                  additionalData: `$mds-font-asset-path: '~@mds/fonts/src/';`,
+                },
+              },
+              {
+                loader: "esbuild-loader",
+                options: {
+                  loader: "css",
+                  minify: true,
+                },
+              },
+            ],
           },
         ],
       },
@@ -102,10 +127,14 @@ module.exports = {
         type: "var",
         name,
       },
-      // shared: sharedDependencies,
       exposes: {
         "./Example": "./src/components/Example.vue",
-        "./render": "./src/utilities/render",
+      },
+      remotes: {
+        my_remote: `promise new Promise((resolve, reject) => {
+          __module_federation__.loadRemote('my_remote')
+            .then(resolve).catch(reject);
+        });`,
       },
     }),
     new HtmlWebpackPlugin({
